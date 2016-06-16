@@ -28,10 +28,8 @@ version := "0.0.1"
 
 scalaVersion := "2.10.6"
 
-startYear := Some(2016)
-
 licenses := Seq(
-  ("MIT", url("http://opensource.org/licenses/MIT"))
+  "MIT" -> url("http://opensource.org/licenses/MIT")
 )
 
 developers := List(
@@ -41,6 +39,14 @@ developers := List(
     url("https://github.com/braunse")
   )
 )
+
+scmInfo := Some(ScmInfo(url("https://github.com/braunse/sbt-sass-compiler"),
+  connection = "scm:git:https://github.com/braunse/sbt-sass-compiler",
+  devConnection = Some("scm:git")))
+
+homepage := Some(url("https://github.com/braunse/sbt-sass-compile"))
+
+pomIncludeRepository := { _ => false }
 
 publishTo := None
 
