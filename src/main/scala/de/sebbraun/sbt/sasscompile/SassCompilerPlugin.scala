@@ -28,14 +28,19 @@ import sbt._
 object SassCompilerPlugin extends AutoPlugin {
 
   object autoImport {
+    lazy val sassSources = taskKey[Seq[(File, File)]]("List all SCSS source files and the top-level source directory they belong to")
     lazy val sassCompiler = settingKey[String]("The SASS compiler implementation to use. Supported compilers are sass, sassc and node-sass.")
     lazy val sassSourceRoot = settingKey[File]("The root folder where SASS sources will be searched")
     lazy val sassOutputDir = settingKey[File]("The output directory where CSS files will be put")
     lazy val compileSass = taskKey[Seq[File]]("Compile SASS to CSS")
 
     lazy val sassCompileBaseSettings: Seq[Def.Setting[_]] = Seq(
+      sassSources := {
+        CompileSass.sourcesIn((sassSourceRoot in sassSources).value)
+      },
+      sassSourceRoot in sassSources := (sassSourceRoot in compileSass).value,
       compileSass := {
-        CompileSass((sassCompiler in compileSass).value, (sassSourceRoot in compileSass).value,
+        CompileSass((sassCompiler in compileSass).value, sassSources.value,
           (sassOutputDir in compileSass).value, Keys.streams.value.log)
       },
       sassOutputDir in compileSass := {
@@ -50,8 +55,17 @@ object SassCompilerPlugin extends AutoPlugin {
 
   import autoImport._
 
+  override def requires = plugins.JvmPlugin
+
   override def projectSettings: Seq[_root_.sbt.Def.Setting[_]] =
-    inConfig(Compile)(sassCompileBaseSettings)
+    inConfig(Compile)(sassCompileBaseSettings) ++
+      Seq(
+        Keys.watchSources <++= sassSources.in(Compile) map {
+          _ map {
+            case (dir, file) => file
+          }
+        }
+      )
 
   override def globalSettings: Seq[_root_.sbt.Def.Setting[_]] = Seq(
     sassCompiler.in(GlobalScope) := "sass"

@@ -28,16 +28,23 @@ import sbt._
   * Created by braunse on 16.06.16.
   */
 object CompileSass {
-  def apply(sassCompiler: String, sassSourceDir: File, sassOutputDir: File, log: Logger): Seq[File] = {
-    if (!sassSourceDir.exists()) {
-      log.info(s"No sources found at $sassSourceDir")
+  def apply(sassCompiler: String, sassSourceFiles: Seq[(File, File)], sassOutputDir: File, log: Logger): Seq[File] = {
+    if (sassSourceFiles.isEmpty) {
+      log.info(s"No sources found")
       return Seq()
     }
 
     sassOutputDir.mkdirs()
 
-    def compileSass(scss: File, optimize: Boolean): List[File] = {
-      val outFile: File = sassOutputDir / scss.getName.replaceAll("(?i)\\.scss", if (optimize) ".opt.css" else ".css")
+    def compileSass(dir: File, scss: File, optimize: Boolean): List[File] = {
+      val relSCSSOpt = scss.relativeTo(dir)
+      if (relSCSSOpt.isEmpty) {
+        log.warn(s"Could not find path of $scss relative to $dir, skipping")
+        return Nil
+      }
+      val relSCSS = relSCSSOpt.get
+
+      val outFile: File = sassOutputDir / relSCSS.getPath.replaceAll("(?i)\\.scss$", if (optimize) ".opt.css" else ".css")
       val style = if (optimize) "compressed" else "nested"
       val commandLine = sassCompiler match {
         case "node-sass" =>
@@ -66,13 +73,17 @@ object CompileSass {
       List(outFile) ++ mapFile.toList
     }
 
-    log.info(s"Compiling SCSS files from $sassSourceDir to $sassOutputDir using $sassCompiler")
     for {
-      scss <- (sassSourceDir * "*.scss").get if !scss.getName.startsWith("_")
+      (dir, scss) <- sassSourceFiles
       optimize <- Seq(true, false)
-      output <- compileSass(scss, optimize)
+      output <- compileSass(dir, scss, optimize)
     } yield {
       output
     }
   }
+
+  def sourcesIn(sourceDirectories: File*): Seq[(File, File)] = for {
+    sourceDir <- sourceDirectories
+    sourceFile <- (sourceDir ** "*.scss").filter(!_.getName.startsWith("_")).get
+  } yield (sourceDir, sourceFile)
 }
